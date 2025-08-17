@@ -3,6 +3,7 @@ import './App.css';
 import StrategyHeatmap from './components/StrategyHeatmap';
 import ScoreChart from './components/ScoreChart';
 import ScoreHistoryTable from './components/ScoreHistoryTable';
+import RegimeShiftAlert from './components/RegimeShiftAlert';
 
 function App() {
   const [environment, setEnvironment] = useState('prod');
@@ -10,6 +11,9 @@ function App() {
   const [scoreHistory, setScoreHistory] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState('DISCONNECTED');
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [currentRegime, setCurrentRegime] = useState(null);
+  const [regimeShift, setRegimeShift] = useState(null);
+  const [regimeShiftTime, setRegimeShiftTime] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
@@ -17,6 +21,13 @@ function App() {
   const websocketUrl = environment === 'local' 
     ? 'ws://localhost:8765' 
     : 'wss://134.209.184.5:8765';
+
+  // Request notification permission on load
+  useEffect(() => {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     const connect = () => {
@@ -65,6 +76,34 @@ function App() {
             console.log('📦 Received data');
             setMarketData(data);
             setLastUpdate(new Date());
+            
+            // Check for regime changes
+            if (data.data?.regime_by_market?.NQ !== undefined) {
+              const newRegime = Math.floor(data.data.regime_by_market.NQ);
+              const prevRegime = currentRegime;
+              
+              if (prevRegime !== null && newRegime !== prevRegime) {
+                console.log(`🚨 REGIME SHIFT DETECTED: ${prevRegime} → ${newRegime}`);
+                setRegimeShift({ from: prevRegime, to: newRegime });
+                setRegimeShiftTime(new Date());
+                
+                // Browser notification
+                if (Notification.permission === 'granted') {
+                  const getRegimeName = (r) => r >= 2 ? 'BULLISH' : r >= 1 ? 'NEUTRAL' : 'BEARISH';
+                  new Notification('🚨 REGIME SHIFT DETECTED!', {
+                    body: `${getRegimeName(prevRegime)} (${prevRegime}) → ${getRegimeName(newRegime)} (${newRegime})`,
+                    icon: '/favicon.ico'
+                  });
+                }
+                
+                // Clear the alert after 30 seconds
+                setTimeout(() => {
+                  setRegimeShift(null);
+                }, 30000);
+              }
+              
+              setCurrentRegime(newRegime);
+            }
             
             // Update score from active_signals_score_by_market
             if (data.data?.active_signals_score_by_market?.NQ !== undefined) {
@@ -153,6 +192,12 @@ function App() {
 
   return (
     <div className="app">
+      {/* Regime Shift Alert */}
+      <RegimeShiftAlert 
+        regimeShift={regimeShift} 
+        regimeShiftTime={regimeShiftTime} 
+      />
+      
       <header className="app-header">
         <h1>ImpViz Active Trader</h1>
         <div className="connection-info">
@@ -162,6 +207,18 @@ function App() {
           </div>
           <div className="last-update">
             Last Update: {formatTime(lastUpdate)}
+          </div>
+          <div className="current-regime">
+            <span style={{ color: '#888' }}>Regime:</span>
+            <span 
+              style={{ 
+                color: currentRegime >= 2 ? '#00ff88' : currentRegime >= 1 ? '#ffaa00' : '#ff4444',
+                fontWeight: 'bold',
+                marginLeft: '5px'
+              }}
+            >
+              {currentRegime !== null ? currentRegime : '-'}
+            </span>
           </div>
           <button 
             className="env-toggle"
