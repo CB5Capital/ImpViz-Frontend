@@ -1,0 +1,193 @@
+import React, { useState, useEffect, useRef } from 'react';
+import './App.css';
+import StrategyHeatmap from './components/StrategyHeatmap';
+import ScoreChart from './components/ScoreChart';
+import ScoreHistoryTable from './components/ScoreHistoryTable';
+
+function App() {
+  const [environment, setEnvironment] = useState('prod');
+  const [marketData, setMarketData] = useState({});
+  const [scoreHistory, setScoreHistory] = useState([]);
+  const [connectionStatus, setConnectionStatus] = useState('DISCONNECTED');
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const isConnectingRef = useRef(false);
+
+  const websocketUrl = environment === 'local' 
+    ? 'ws://localhost:8765' 
+    : 'ws://134.209.184.5:8765';
+
+  useEffect(() => {
+    const connect = () => {
+      // Prevent multiple simultaneous connections
+      if (isConnectingRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) {
+        console.log('⚠️ Already connected or connecting, skipping');
+        return;
+      }
+
+      isConnectingRef.current = true;
+
+      // Clear any existing connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      console.log(`🔌 Connecting to ${websocketUrl}`);
+      
+      try {
+        const ws = new WebSocket(websocketUrl);
+        wsRef.current = ws;
+        
+        ws.onopen = () => {
+          console.log('✅ Connected successfully!');
+          isConnectingRef.current = false;
+          setConnectionStatus('Connected');
+          
+          // Send initial request
+          ws.send(JSON.stringify({ type: 'get_latest' }));
+          
+          // Set up periodic requests - store interval ID on the websocket
+          ws.intervalId = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'get_latest' }));
+            }
+          }, 8000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'pong') return;
+            
+            console.log('📦 Received data');
+            setMarketData(data);
+            setLastUpdate(new Date());
+            
+            // Update score from active_signals_score_by_market
+            if (data.data?.active_signals_score_by_market?.NQ !== undefined) {
+              const score = data.data.active_signals_score_by_market.NQ;
+              
+              setScoreHistory(prev => {
+                const now = new Date();
+                const lastEntry = prev[prev.length - 1];
+                
+                // Only add if at least 5 seconds have passed
+                if (lastEntry && (now - lastEntry.timestamp) < 5000) {
+                  return prev;
+                }
+                
+                const newEntry = {
+                  timestamp: now,
+                  score: score,
+                  longScore: 0,
+                  shortScore: 0
+                };
+                
+                const newHistory = [...prev, newEntry];
+                
+                // Keep only last 5 minutes
+                const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
+                return newHistory.filter(item => item.timestamp > fiveMinutesAgo);
+              });
+            }
+            
+          } catch (error) {
+            console.error('❌ Error processing data:', error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
+          isConnectingRef.current = false;
+          setConnectionStatus('ERROR');
+        };
+
+        ws.onclose = (event) => {
+          console.log('🔌 Connection closed:', event.code);
+          isConnectingRef.current = false;
+          setConnectionStatus('DISCONNECTED');
+          
+          // Clear interval if it exists
+          if (ws.intervalId) {
+            clearInterval(ws.intervalId);
+          }
+          
+          // Reconnect after delay (unless normal close)
+          if (event.code !== 1000) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connect();
+            }, 3000);
+          }
+        };
+
+      } catch (error) {
+        console.error('❌ Failed to create WebSocket:', error);
+        setConnectionStatus('ERROR');
+      }
+    };
+
+    connect();
+
+    // Cleanup function
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        if (wsRef.current.intervalId) {
+          clearInterval(wsRef.current.intervalId);
+        }
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [websocketUrl]);
+
+  const formatTime = (date) => {
+    if (!date) return '--:--:--';
+    return date.toLocaleTimeString();
+  };
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>ImpViz Active Trader</h1>
+        <div className="connection-info">
+          <div className={`status-indicator ${connectionStatus.toLowerCase()}`}>
+            <span className="status-dot"></span>
+            <span>{connectionStatus}</span>
+          </div>
+          <div className="last-update">
+            Last Update: {formatTime(lastUpdate)}
+          </div>
+          <button 
+            className="env-toggle"
+            onClick={() => setEnvironment(env => env === 'prod' ? 'local' : 'prod')}
+          >
+            {environment === 'prod' ? 'Production' : 'Local'}
+          </button>
+        </div>
+      </header>
+
+      {/* Strategy Metrics Heatmap */}
+      <StrategyHeatmap data={marketData} />
+
+      {/* Score Trend Chart */}
+      <ScoreChart 
+        scoreHistory={scoreHistory} 
+        onClearHistory={() => setScoreHistory([])}
+      />
+
+      {/* Score & Regime History Table */}
+      <ScoreHistoryTable 
+        scoreHistory={scoreHistory}
+        regimeData={marketData.data?.regime_by_market}
+      />
+    </div>
+  );
+}
+
+export default App;
