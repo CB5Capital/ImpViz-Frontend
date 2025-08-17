@@ -18,9 +18,22 @@ function App() {
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
 
-  const websocketUrl = environment === 'local' 
-    ? 'ws://localhost:8765' 
-    : 'ws://134.209.184.5:8765';
+  const getWebSocketUrl = () => {
+    if (environment === 'local') {
+      return 'ws://localhost:8765';
+    }
+    
+    // For production, check if we're on HTTPS
+    if (window.location.protocol === 'https:') {
+      // If HTTPS, we need WSS, but fallback to different approach if server doesn't support it
+      console.warn('⚠️ HTTPS detected - WebSocket server needs SSL support');
+      return 'wss://134.209.184.5:8765'; // Try WSS first
+    }
+    
+    return 'ws://134.209.184.5:8765';
+  };
+
+  const websocketUrl = getWebSocketUrl();
 
   // Request notification permission on load
   useEffect(() => {
