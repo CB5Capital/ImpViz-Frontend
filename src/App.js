@@ -183,7 +183,7 @@ function App() {
         wsRef.current = null;
       }
     };
-  }, [websocketUrl]);
+  }, [websocketUrl, currentRegime]);
 
   const formatTime = (date) => {
     if (!date) return '--:--:--';
