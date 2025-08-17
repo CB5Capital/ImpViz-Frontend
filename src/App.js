@@ -16,7 +16,7 @@ function App() {
 
   const websocketUrl = environment === 'local' 
     ? 'ws://localhost:8765' 
-    : 'ws://134.209.184.5:8765';
+    : 'wss://134.209.184.5:8765';
 
   useEffect(() => {
     const connect = () => {
