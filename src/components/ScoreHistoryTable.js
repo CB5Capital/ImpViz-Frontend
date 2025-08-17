@@ -64,9 +64,9 @@ const ScoreHistoryTable = ({ scoreHistory, regimeData }) => {
     };
   });
 
-  // Apply aggregation and show last 10 entries
+  // Apply aggregation and show last 10 entries (most recent first)
   const aggregatedData = aggregateData(combinedHistory, timeframe);
-  const displayData = aggregatedData.slice(-10);
+  const displayData = aggregatedData.slice(-10).reverse();
 
   const getScoreColor = (score) => {
     if (score >= 0) return '#00ff88';
