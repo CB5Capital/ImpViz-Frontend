@@ -239,7 +239,7 @@ function App() {
       />
       
       <header className="app-header">
-        <h1>ImpViz Active Trader</h1>
+        <h1>ImpViz Active Trader {isMobile ? '📱' : ''}</h1>
         <div className="connection-info">
           <div className={`status-indicator ${connectionStatus.toLowerCase()}`}>
             <span className="status-dot"></span>
@@ -272,7 +272,15 @@ function App() {
       {isMobile ? (
         <>
           <div className="mobile-content">
-            {renderMobileSection()}
+            {!marketData?.data ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>
+                <p>📱 Mobile View Active</p>
+                <p>Connecting to WebSocket...</p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Status: {connectionStatus}</p>
+              </div>
+            ) : (
+              renderMobileSection()
+            )}
           </div>
           <div className="mobile-nav">
             <button 
