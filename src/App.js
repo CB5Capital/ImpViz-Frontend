@@ -4,6 +4,7 @@ import StrategyHeatmap from './components/StrategyHeatmap';
 import ScoreChart from './components/ScoreChart';
 import ScoreHistoryTable from './components/ScoreHistoryTable';
 import RegimeShiftAlert from './components/RegimeShiftAlert';
+import MobileApp from './components/MobileApp';
 import useMobileDetect from './hooks/useMobileDetect';
 
 function App() {
@@ -230,8 +231,25 @@ function App() {
     }
   };
 
+  // Use completely separate component for mobile to avoid CSS conflicts
+  if (isMobile) {
+    return (
+      <MobileApp 
+        connectionStatus={connectionStatus}
+        lastUpdate={lastUpdate}
+        currentRegime={currentRegime}
+        marketData={marketData}
+        scoreHistory={scoreHistory}
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        renderMobileSection={renderMobileSection}
+      />
+    );
+  }
+
+  // Desktop version
   return (
-    <div className={`app ${isMobile ? 'mobile' : ''}`}>
+    <div className="app">
       {/* Regime Shift Alert */}
       <RegimeShiftAlert 
         regimeShift={regimeShift} 
@@ -239,7 +257,7 @@ function App() {
       />
       
       <header className="app-header">
-        <h1>ImpViz Active Trader {isMobile ? '📱' : ''}</h1>
+        <h1>ImpViz Active Trader</h1>
         <div className="connection-info">
           <div className={`status-indicator ${connectionStatus.toLowerCase()}`}>
             <span className="status-dot"></span>
@@ -269,58 +287,20 @@ function App() {
         </div>
       </header>
 
-      {isMobile ? (
-        <>
-          <div className="mobile-content">
-            {!marketData?.data ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>
-                <p>📱 Mobile View Active</p>
-                <p>Connecting to WebSocket...</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Status: {connectionStatus}</p>
-              </div>
-            ) : (
-              renderMobileSection()
-            )}
-          </div>
-          <div className="mobile-nav">
-            <button 
-              className={`nav-button ${activeSection === 'heatmap' ? 'active' : ''}`}
-              onClick={() => setActiveSection('heatmap')}
-            >
-              Heatmap
-            </button>
-            <button 
-              className={`nav-button ${activeSection === 'chart' ? 'active' : ''}`}
-              onClick={() => setActiveSection('chart')}
-            >
-              Chart
-            </button>
-            <button 
-              className={`nav-button ${activeSection === 'history' ? 'active' : ''}`}
-              onClick={() => setActiveSection('history')}
-            >
-              History
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Strategy Metrics Heatmap */}
-          <StrategyHeatmap data={marketData} />
+      {/* Strategy Metrics Heatmap */}
+      <StrategyHeatmap data={marketData} />
 
-          {/* Score Trend Chart */}
-          <ScoreChart 
-            scoreHistory={scoreHistory} 
-            onClearHistory={() => setScoreHistory([])}
-          />
+      {/* Score Trend Chart */}
+      <ScoreChart 
+        scoreHistory={scoreHistory} 
+        onClearHistory={() => setScoreHistory([])}
+      />
 
-          {/* Score & Regime History Table */}
-          <ScoreHistoryTable 
-            scoreHistory={scoreHistory}
-            regimeData={marketData.data?.regime_by_market}
-          />
-        </>
-      )}
+      {/* Score & Regime History Table */}
+      <ScoreHistoryTable 
+        scoreHistory={scoreHistory}
+        regimeData={marketData.data?.regime_by_market}
+      />
     </div>
   );
 }
