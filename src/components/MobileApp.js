@@ -9,7 +9,9 @@ const MobileApp = ({
   scoreHistory, 
   activeSection, 
   setActiveSection,
-  renderMobileSection 
+  renderMobileSection,
+  regimeShift,
+  regimeShiftTime
 }) => {
   const formatTime = (date) => {
     if (!date) return '--:--:--';
@@ -142,7 +144,12 @@ const MobileApp = ({
         ) : (
           <div>
             {/* Always show best setups at the top */}
-            <BestSetupsByTag data={marketData} />
+            <BestSetupsByTag 
+              data={marketData} 
+              regimeShift={regimeShift}
+              regimeShiftTime={regimeShiftTime}
+              currentRegime={currentRegime}
+            />
             {/* Then show the selected section */}
             {renderMobileSection()}
           </div>

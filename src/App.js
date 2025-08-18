@@ -245,6 +245,8 @@ function App() {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         renderMobileSection={renderMobileSection}
+        regimeShift={regimeShift}
+        regimeShiftTime={regimeShiftTime}
       />
     );
   }
@@ -298,7 +300,12 @@ function App() {
 
       <div className={`app-content ${isFullScreen ? 'fullscreen-grid' : ''}`}>
         {/* Best Setups by TAG - Always show this first */}
-        <BestSetupsByTag data={marketData} />
+        <BestSetupsByTag 
+          data={marketData} 
+          regimeShift={regimeShift}
+          regimeShiftTime={regimeShiftTime}
+          currentRegime={currentRegime}
+        />
 
         {/* Strategy Metrics Heatmap */}
         <StrategyHeatmap data={marketData} />

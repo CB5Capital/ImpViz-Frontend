@@ -1,6 +1,6 @@
 import React from 'react';
 
-const BestSetupsByTag = ({ data }) => {
+const BestSetupsByTag = ({ data, regimeShift, regimeShiftTime, currentRegime }) => {
   // Extract signals from the data
   const signalsData = data?.data?.signals_by_market;
   
@@ -43,13 +43,13 @@ const BestSetupsByTag = ({ data }) => {
           }
         }
 
-        // Include ALL signals, not just active ones
-        if (tag && signal.direction && (signal.direction === 'Long' || signal.direction === 'Short')) {
+        // Include ONLY ACTIVE signals
+        if (tag && signal.direction && (signal.direction === 'Long' || signal.direction === 'Short') && signal.has_active_signal === 1) {
           signalsByTagAndDirection[tag][signal.direction].push({
             ...signal,
             market: market,
             // Add a flag to indicate if signal is active
-            isActive: signal.has_active_signal === 1
+            isActive: true
           });
         }
       });
@@ -91,14 +91,21 @@ const BestSetupsByTag = ({ data }) => {
           return scoreB - scoreA;
         });
         
+        const bestSetup = sortedSignals[0];
         bestSetupsByTagAndDirection.push({
           tag: tag,
           direction: direction,
-          setup: sortedSignals[0]
+          setup: bestSetup,
+          score: bestSetup.hit_rate * bestSetup.pnl_per_trade * (bestSetup.avg_drawdown ? (1 / Math.abs(bestSetup.avg_drawdown)) : 0.1) * Math.min(1, (bestSetup.sample_size || 0) / 100)
         });
       }
     });
   });
+
+  // Find the best overall ACTIVE strategy
+  const activeSetups = bestSetupsByTagAndDirection.filter(item => item.setup.isActive);
+  const bestOverallActiveSetup = activeSetups.length > 0 ? 
+    activeSetups.reduce((best, current) => current.score > best.score ? current : best) : null;
 
   const getDirectionColor = (direction) => {
     return direction === 'Long' ? '#00ff88' : '#ff4444';
@@ -113,18 +120,51 @@ const BestSetupsByTag = ({ data }) => {
     }
   };
 
+  // Helper function to get regime name
+  const getRegimeName = (regime) => {
+    if (regime >= 2) return 'BULLISH';
+    if (regime >= 1) return 'NEUTRAL';
+    return 'BEARISH';
+  };
+
   return (
     <div className="best-setups-section">
-      <h3>🏆 BEST SETUPS BY STRATEGY (CURRENT REGIME)</h3>
+      {/* Breaking News Banner for Regime Shift */}
+      {regimeShift && regimeShiftTime && (
+        <div className="regime-shift-banner">
+          <div className="breaking-news-content">
+            <span className="breaking-news-label">⚡ REGIME SHIFT ALERT</span>
+            <span className="breaking-news-text">
+              {getRegimeName(regimeShift.from)} ({regimeShift.from}) → {getRegimeName(regimeShift.to)} ({regimeShift.to}) • 
+              {regimeShiftTime.toLocaleTimeString()}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Breaking News Banner for Best Overall Active Strategy */}
+      {bestOverallActiveSetup && (
+        <div className="breaking-news-banner">
+          <div className="breaking-news-content">
+            <span className="breaking-news-label">🚨 BEST ACTIVE STRATEGY</span>
+            <span className="breaking-news-text">
+              {bestOverallActiveSetup.tag} {bestOverallActiveSetup.direction} • {bestOverallActiveSetup.setup.market} • 
+              {(bestOverallActiveSetup.setup.hit_rate).toFixed(1)}% Hit Rate • ${bestOverallActiveSetup.setup.pnl_per_trade?.toFixed(0)} Avg P&L
+            </span>
+          </div>
+        </div>
+      )}
+
+      <h3>🏆 BEST ACTIVE SETUPS BY STRATEGY</h3>
       
       {bestSetupsByTagAndDirection.length === 0 ? (
         <div className="no-active-setups">
-          <p>No setups available in current regime</p>
+          <p>No active setups currently</p>
         </div>
       ) : (
         <div className="best-setups-grid">
           {bestSetupsByTagAndDirection.map(({ tag, direction, setup }, index) => (
-            <div key={`${tag}-${direction}`} className="best-setup-card">
+            <div key={`${tag}-${direction}`} className={`best-setup-card ${setup.isActive ? 'active-setup' : ''}`}>
               <div className="setup-header">
                 <span className="tag-icon">{getTagIcon(tag)}</span>
                 <span className="tag-name">{tag}</span>
@@ -135,7 +175,7 @@ const BestSetupsByTag = ({ data }) => {
                   {direction}
                 </span>
                 {setup.isActive && (
-                  <span className="active-badge">ACTIVE</span>
+                  <span className="active-badge">🔥 ACTIVE</span>
                 )}
               </div>
               
@@ -234,6 +274,78 @@ const BestSetupsByTag = ({ data }) => {
           text-align: center;
         }
 
+        /* Regime Shift Banner */
+        .regime-shift-banner {
+          background: linear-gradient(90deg, #ffaa00, #ffcc44, #ffaa00);
+          border: 2px solid #ffcc44;
+          border-radius: 8px;
+          margin-bottom: 15px;
+          padding: 12px;
+          animation: regimeShiftGlow 2s ease-in-out infinite alternate;
+          box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);
+          overflow: hidden;
+          position: relative;
+        }
+
+        .regime-shift-banner::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+          animation: breakingNewsShine 3s ease-in-out infinite;
+        }
+
+        /* Breaking News Banner */
+        .breaking-news-banner {
+          background: linear-gradient(90deg, #ff4444, #ff6666, #ff4444);
+          border: 2px solid #ff6666;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          padding: 12px;
+          animation: breakingNewsGlow 2s ease-in-out infinite alternate;
+          box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+          overflow: hidden;
+          position: relative;
+        }
+
+        .breaking-news-banner::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          animation: breakingNewsShine 3s ease-in-out infinite;
+        }
+
+        .breaking-news-content {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .breaking-news-label {
+          font-size: 12px;
+          font-weight: bold;
+          color: #ffffff;
+          text-transform: uppercase;
+          text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+          animation: breakingNewsFlash 1.5s ease-in-out infinite;
+        }
+
+        .breaking-news-text {
+          font-size: 11px;
+          color: #ffffff;
+          font-weight: bold;
+          text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+        }
+
         .no-active-setups {
           text-align: center;
           color: #666;
@@ -261,6 +373,20 @@ const BestSetupsByTag = ({ data }) => {
           transform: translateY(-2px);
         }
 
+        /* Active setup styling - very prominent */
+        .best-setup-card.active-setup {
+          background: linear-gradient(135deg, rgba(0, 255, 136, 0.15) 0%, rgba(0, 212, 255, 0.15) 100%);
+          border: 2px solid #00ff88;
+          box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+          animation: activeGlow 3s ease-in-out infinite alternate;
+          transform: scale(1.02);
+        }
+
+        .best-setup-card.active-setup:hover {
+          transform: scale(1.05);
+          box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+        }
+
         .setup-header {
           display: flex;
           align-items: center;
@@ -282,13 +408,15 @@ const BestSetupsByTag = ({ data }) => {
 
         .active-badge {
           margin-left: auto;
-          background: #00ff88;
+          background: linear-gradient(45deg, #00ff88, #00ff88, #ffffff);
           color: #0a0e27;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 9px;
+          padding: 4px 10px;
+          border-radius: 15px;
+          font-size: 10px;
           font-weight: bold;
-          animation: pulse 2s infinite;
+          text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+          animation: activeBadgePulse 2s ease-in-out infinite;
+          box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
         }
 
         .tag-icon {
@@ -374,10 +502,11 @@ const BestSetupsByTag = ({ data }) => {
 
         .signal-status {
           margin-top: 10px;
-          padding: 6px;
-          background: rgba(0, 212, 255, 0.1);
-          border: 1px solid rgba(0, 212, 255, 0.3);
-          border-radius: 4px;
+          padding: 8px;
+          background: linear-gradient(135deg, rgba(0, 255, 136, 0.2) 0%, rgba(0, 212, 255, 0.2) 100%);
+          border: 1px solid rgba(0, 255, 136, 0.5);
+          border-radius: 6px;
+          text-align: center;
         }
 
         .signal-age {
@@ -386,17 +515,70 @@ const BestSetupsByTag = ({ data }) => {
         }
 
         .age-indicator {
-          font-size: 10px;
-          color: #999;
-          background: rgba(0, 0, 0, 0.3);
-          padding: 2px 8px;
-          border-radius: 10px;
+          font-size: 11px;
+          color: #00ff88;
+          background: rgba(0, 0, 0, 0.4);
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-weight: bold;
         }
 
-        @keyframes pulse {
-          0% { opacity: 1; }
+        @keyframes activeGlow {
+          0% { 
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+          }
+          100% { 
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+            border-color: #00ffaa;
+          }
+        }
+
+        @keyframes activeBadgePulse {
+          0% { 
+            transform: scale(1);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+          }
+          50% { 
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+          }
+          100% { 
+            transform: scale(1);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+          }
+        }
+
+        @keyframes breakingNewsGlow {
+          0% { 
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+            border-color: #ff6666;
+          }
+          100% { 
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.8);
+            border-color: #ff4444;
+          }
+        }
+
+        @keyframes breakingNewsShine {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+
+        @keyframes breakingNewsFlash {
+          0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
-          100% { opacity: 1; }
+        }
+
+        @keyframes regimeShiftGlow {
+          0% { 
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);
+            border-color: #ffcc44;
+          }
+          100% { 
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.8);
+            border-color: #ffaa00;
+          }
         }
 
         /* Mobile styles */
