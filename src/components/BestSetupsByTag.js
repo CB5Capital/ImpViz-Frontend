@@ -165,16 +165,12 @@ const BestSetupsByTag = ({ data }) => {
                       </span>
                     </div>
                     <div className="metric-item">
-                      <span className="metric-label">R/R</span>
-                      <span className="metric-value">{setup.risk_reward_ratio?.toFixed(2) || 'N/A'}</span>
+                      <span className="metric-label">Samples</span>
+                      <span className="metric-value">{setup.sample_size || 0}</span>
                     </div>
                   </div>
                   
                   <div className="metrics-row">
-                    <div className="metric-item">
-                      <span className="metric-label">Samples</span>
-                      <span className="metric-value">{setup.sample_size || 0}</span>
-                    </div>
                     <div className="metric-item">
                       <span className="metric-label">Avg Duration</span>
                       <span className="metric-value">
@@ -195,51 +191,24 @@ const BestSetupsByTag = ({ data }) => {
                         ${Math.abs(setup.avg_drawdown || 0).toFixed(0)}
                       </span>
                     </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Current</span>
+                      <span className="metric-value">
+                        ${setup.current_price?.toFixed(2) || 'N/A'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {setup.current_price && (
-                  <div className="price-targets">
-                    <div className="current-price">
-                      Current: ${setup.current_price?.toFixed(2)}
-                    </div>
-                    {setup.take_profit && (
-                      <>
-                        <div className="target-price" style={{ color: '#00ff88' }}>
-                          TP: {setup.take_profit?.toFixed(1)} pts
-                        </div>
-                        <div className="target-price" style={{ color: '#ff4444' }}>
-                          SL: {(() => {
-                            // Calculate SL based on strategy type
-                            if (tag === 'Mean Reversion' || tag === 'Trend Reversal') {
-                              // 1:1 RR - SL = TP
-                              return setup.take_profit?.toFixed(1);
-                            } else if (tag === 'Trend Following') {
-                              // 1:3 RR - SL = TP / 3
-                              return (setup.take_profit / 3)?.toFixed(1);
-                            }
-                            return setup.take_profit?.toFixed(1);
-                          })()} pts
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {setup.isActive && (
+                {setup.isActive && setup.signal_age_minutes && (
                   <div className="signal-status">
-                    <div className="signal-strength">
-                      Signal Strength: <strong>{setup.signal_strength?.toFixed(1)}%</strong>
+                    <div className="signal-age">
+                      <span className="age-indicator">
+                        Active for {setup.signal_age_minutes < 60 
+                          ? `${setup.signal_age_minutes.toFixed(0)}m` 
+                          : `${(setup.signal_age_minutes / 60).toFixed(1)}h`}
+                      </span>
                     </div>
-                    {setup.signal_age_minutes && (
-                      <div className="signal-age">
-                        <span className="age-indicator">
-                          Active for {setup.signal_age_minutes < 60 
-                            ? `${setup.signal_age_minutes.toFixed(0)}m` 
-                            : `${(setup.signal_age_minutes / 60).toFixed(1)}h`}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -402,36 +371,13 @@ const BestSetupsByTag = ({ data }) => {
           color: #fff;
         }
 
-        .price-targets {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          padding: 6px;
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 4px;
-        }
-
-        .current-price {
-          color: #999;
-        }
-
-        .target-price {
-          font-weight: bold;
-        }
 
         .signal-status {
           margin-top: 10px;
-          padding: 8px;
+          padding: 6px;
           background: rgba(0, 212, 255, 0.1);
           border: 1px solid rgba(0, 212, 255, 0.3);
           border-radius: 4px;
-        }
-
-        .signal-strength {
-          font-size: 11px;
-          color: #00d4ff;
-          text-align: center;
-          margin-bottom: 5px;
         }
 
         .signal-age {
