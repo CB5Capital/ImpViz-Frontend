@@ -150,26 +150,51 @@ const BestSetupsByTag = ({ data }) => {
                 </div>
                 
                 <div className="setup-metrics">
-                  <div className="metric-item">
-                    <span className="metric-label">Hit Rate</span>
-                    <span className="metric-value">{(setup.hit_rate * 100).toFixed(1)}%</span>
+                  <div className="metrics-row">
+                    <div className="metric-item">
+                      <span className="metric-label">Hit Rate</span>
+                      <span className="metric-value">{(setup.hit_rate).toFixed(1)}%</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Avg P&L</span>
+                      <span 
+                        className="metric-value"
+                        style={{ color: setup.pnl_per_trade > 0 ? '#00ff88' : '#ff4444' }}
+                      >
+                        ${setup.pnl_per_trade?.toFixed(0)}
+                      </span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">R/R</span>
+                      <span className="metric-value">{setup.risk_reward_ratio?.toFixed(2) || 'N/A'}</span>
+                    </div>
                   </div>
-                  <div className="metric-item">
-                    <span className="metric-label">Avg P&L</span>
-                    <span 
-                      className="metric-value"
-                      style={{ color: setup.pnl_per_trade > 0 ? '#00ff88' : '#ff4444' }}
-                    >
-                      ${setup.pnl_per_trade?.toFixed(0)}
-                    </span>
-                  </div>
-                  <div className="metric-item">
-                    <span className="metric-label">R/R</span>
-                    <span className="metric-value">{setup.risk_reward_ratio?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="metric-item">
-                    <span className="metric-label">Samples</span>
-                    <span className="metric-value">{setup.sample_size || 0}</span>
+                  
+                  <div className="metrics-row">
+                    <div className="metric-item">
+                      <span className="metric-label">Samples</span>
+                      <span className="metric-value">{setup.sample_size || 0}</span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Avg Duration</span>
+                      <span className="metric-value">
+                        {setup.avg_duration ? 
+                          (setup.avg_duration < 60 ? 
+                            `${setup.avg_duration.toFixed(0)}m` : 
+                            `${(setup.avg_duration / 60).toFixed(1)}h`
+                          ) : 'N/A'
+                        }
+                      </span>
+                    </div>
+                    <div className="metric-item">
+                      <span className="metric-label">Avg DD</span>
+                      <span 
+                        className="metric-value"
+                        style={{ color: '#ff6666' }}
+                      >
+                        ${Math.abs(setup.avg_drawdown || 0).toFixed(0)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -179,14 +204,24 @@ const BestSetupsByTag = ({ data }) => {
                       Current: ${setup.current_price?.toFixed(2)}
                     </div>
                     {setup.take_profit && (
-                      <div className="target-price" style={{ color: '#00ff88' }}>
-                        TP: ${setup.take_profit?.toFixed(2)}
-                      </div>
-                    )}
-                    {setup.stop_loss && (
-                      <div className="target-price" style={{ color: '#ff4444' }}>
-                        SL: ${setup.stop_loss?.toFixed(2)}
-                      </div>
+                      <>
+                        <div className="target-price" style={{ color: '#00ff88' }}>
+                          TP: {setup.take_profit?.toFixed(1)} pts
+                        </div>
+                        <div className="target-price" style={{ color: '#ff4444' }}>
+                          SL: {(() => {
+                            // Calculate SL based on strategy type
+                            if (tag === 'Mean Reversion' || tag === 'Trend Reversal') {
+                              // 1:1 RR - SL = TP
+                              return setup.take_profit?.toFixed(1);
+                            } else if (tag === 'Trend Following') {
+                              // 1:3 RR - SL = TP / 3
+                              return (setup.take_profit / 3)?.toFixed(1);
+                            }
+                            return setup.take_profit?.toFixed(1);
+                          })()} pts
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
@@ -334,18 +369,25 @@ const BestSetupsByTag = ({ data }) => {
         }
 
         .setup-metrics {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 8px;
+          padding: 10px;
           background: rgba(0, 0, 0, 0.2);
           border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .metrics-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
         }
 
         .metric-item {
           display: flex;
           flex-direction: column;
           align-items: center;
+          flex: 1;
         }
 
         .metric-label {
@@ -430,13 +472,22 @@ const BestSetupsByTag = ({ data }) => {
           padding: 12px;
         }
 
-        .mobile .setup-metrics {
+        .mobile .metrics-row {
           flex-wrap: wrap;
+          gap: 5px;
         }
 
         .mobile .metric-item {
           flex: 1;
           min-width: 30%;
+        }
+
+        .mobile .metric-label {
+          font-size: 8px;
+        }
+
+        .mobile .metric-value {
+          font-size: 10px;
         }
 
         /* Mobile direction badge */
