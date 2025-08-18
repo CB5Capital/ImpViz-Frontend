@@ -13,16 +13,16 @@ const BestSetupsByTag = ({ data }) => {
     );
   }
 
-  // TAG mapping from the backend
+  // TAG mapping from the backend - matching super_model.py lines 1179-1185
   const tagMapping = {
     "MACD Convergence": "Trend Following",
-    "SMA 5/20 Convergence": "Trend Following",
+    "SMA 5/20 Convergence": "Trend Following",  // This is Trend Following, not Trend Reversal
     "Williams %R 1/99 -> 20/80": "Mean Reversion",
     "Williams %R 10/90 -> 50/50": "Mean Reversion",
     "SMA 5/20 + Williams %R Counter Trend": "Trend Reversal"
   };
 
-  // Collect all signals and organize by TAG
+  // Collect ALL signals (not just active) and organize by TAG
   const signalsByTag = {
     "Trend Following": [],
     "Mean Reversion": [],
@@ -33,33 +33,68 @@ const BestSetupsByTag = ({ data }) => {
   Object.entries(signalsData).forEach(([market, marketData]) => {
     if (marketData.signals) {
       marketData.signals.forEach(signal => {
-        // Map setup name to TAG
+        // Map setup name to TAG - need more precise matching
         let tag = null;
-        Object.entries(tagMapping).forEach(([setupPattern, tagName]) => {
-          if (signal.setup_name && signal.setup_name.includes(setupPattern.split(' ')[0])) {
-            tag = tagName;
+        
+        // Check for exact patterns in setup names
+        if (signal.setup_name) {
+          if (signal.setup_name.includes("MACD") && signal.setup_name.includes("Convergence")) {
+            tag = "Trend Following";
+          } else if (signal.setup_name.includes("SMA") && signal.setup_name.includes("5/20") && 
+                     signal.setup_name.includes("Counter")) {
+            tag = "Trend Reversal";
+          } else if (signal.setup_name.includes("SMA") && signal.setup_name.includes("5/20")) {
+            tag = "Trend Following";
+          } else if (signal.setup_name.includes("Williams") && 
+                     (signal.setup_name.includes("1/99") || signal.setup_name.includes("10/90"))) {
+            tag = "Mean Reversion";
           }
-        });
+        }
 
-        if (tag && signal.has_active_signal === 1) {
+        // Include ALL signals, not just active ones
+        if (tag) {
           signalsByTag[tag].push({
             ...signal,
-            market: market
+            market: market,
+            // Add a flag to indicate if signal is active
+            isActive: signal.has_active_signal === 1
           });
         }
       });
     }
   });
 
-  // Find best setup for each TAG
+  // Find best setup for each TAG based on overall performance metrics
   const bestSetupsByTag = {};
   
   Object.entries(signalsByTag).forEach(([tag, signals]) => {
     if (signals.length > 0) {
-      // Sort by a composite score: signal_strength * hit_rate * (1 + pnl_per_trade/100)
+      // Sort by overall performance metrics, not just active signal strength
+      // Use: hit_rate * pnl_per_trade * (1 / avg_drawdown) * sample_size weight
       const sortedSignals = signals.sort((a, b) => {
-        const scoreA = (a.signal_strength || 0) * (a.hit_rate || 0) * (1 + (a.pnl_per_trade || 0) / 100);
-        const scoreB = (b.signal_strength || 0) * (b.hit_rate || 0) * (1 + (b.pnl_per_trade || 0) / 100);
+        // Calculate composite score based on historical performance
+        const hitRateA = a.hit_rate || 0;
+        const hitRateB = b.hit_rate || 0;
+        
+        const pnlA = a.pnl_per_trade || 0;
+        const pnlB = b.pnl_per_trade || 0;
+        
+        // Lower drawdown is better, so invert it
+        const drawdownFactorA = a.avg_drawdown ? (1 / Math.abs(a.avg_drawdown)) : 0.1;
+        const drawdownFactorB = b.avg_drawdown ? (1 / Math.abs(b.avg_drawdown)) : 0.1;
+        
+        // Sample size weight (more samples = more reliable)
+        const sampleWeightA = Math.min(1, (a.sample_size || 0) / 100);
+        const sampleWeightB = Math.min(1, (b.sample_size || 0) / 100);
+        
+        // Risk/reward ratio bonus
+        const rrA = a.risk_reward_ratio || 1;
+        const rrB = b.risk_reward_ratio || 1;
+        
+        // Composite score calculation
+        const scoreA = hitRateA * pnlA * drawdownFactorA * sampleWeightA * rrA;
+        const scoreB = hitRateB * pnlB * drawdownFactorB * sampleWeightB * rrB;
+        
         return scoreB - scoreA;
       });
       
@@ -82,11 +117,11 @@ const BestSetupsByTag = ({ data }) => {
 
   return (
     <div className="best-setups-section">
-      <h3>🏆 BEST ACTIVE SETUPS BY STRATEGY</h3>
+      <h3>🏆 BEST SETUPS BY STRATEGY (CURRENT REGIME)</h3>
       
       {Object.keys(bestSetupsByTag).length === 0 ? (
         <div className="no-active-setups">
-          <p>No active setups currently</p>
+          <p>No setups available in current regime</p>
         </div>
       ) : (
         <div className="best-setups-grid">
@@ -95,6 +130,9 @@ const BestSetupsByTag = ({ data }) => {
               <div className="setup-header">
                 <span className="tag-icon">{getTagIcon(tag)}</span>
                 <span className="tag-name">{tag}</span>
+                {setup.isActive && (
+                  <span className="active-badge">ACTIVE</span>
+                )}
               </div>
               
               <div className="setup-details">
@@ -115,21 +153,25 @@ const BestSetupsByTag = ({ data }) => {
                 
                 <div className="setup-metrics">
                   <div className="metric-item">
-                    <span className="metric-label">Signal</span>
-                    <span className="metric-value">{setup.signal_strength?.toFixed(1)}%</span>
-                  </div>
-                  <div className="metric-item">
                     <span className="metric-label">Hit Rate</span>
                     <span className="metric-value">{(setup.hit_rate * 100).toFixed(1)}%</span>
                   </div>
                   <div className="metric-item">
-                    <span className="metric-label">P&L</span>
+                    <span className="metric-label">Avg P&L</span>
                     <span 
                       className="metric-value"
                       style={{ color: setup.pnl_per_trade > 0 ? '#00ff88' : '#ff4444' }}
                     >
                       ${setup.pnl_per_trade?.toFixed(0)}
                     </span>
+                  </div>
+                  <div className="metric-item">
+                    <span className="metric-label">R/R</span>
+                    <span className="metric-value">{setup.risk_reward_ratio?.toFixed(2) || 'N/A'}</span>
+                  </div>
+                  <div className="metric-item">
+                    <span className="metric-label">Samples</span>
+                    <span className="metric-value">{setup.sample_size || 0}</span>
                   </div>
                 </div>
 
@@ -151,15 +193,22 @@ const BestSetupsByTag = ({ data }) => {
                   </div>
                 )}
 
-                <div className="signal-age">
-                  {setup.signal_age_minutes && (
-                    <span className="age-indicator">
-                      Active for {setup.signal_age_minutes < 60 
-                        ? `${setup.signal_age_minutes.toFixed(0)}m` 
-                        : `${(setup.signal_age_minutes / 60).toFixed(1)}h`}
-                    </span>
-                  )}
-                </div>
+                {setup.isActive && (
+                  <div className="signal-status">
+                    <div className="signal-strength">
+                      Signal Strength: <strong>{setup.signal_strength?.toFixed(1)}%</strong>
+                    </div>
+                    {setup.signal_age_minutes && (
+                      <div className="signal-age">
+                        <span className="age-indicator">
+                          Active for {setup.signal_age_minutes < 60 
+                            ? `${setup.signal_age_minutes.toFixed(0)}m` 
+                            : `${(setup.signal_age_minutes / 60).toFixed(1)}h`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -217,6 +266,18 @@ const BestSetupsByTag = ({ data }) => {
           margin-bottom: 12px;
           padding-bottom: 8px;
           border-bottom: 1px solid #2a2f4a;
+          position: relative;
+        }
+
+        .active-badge {
+          margin-left: auto;
+          background: #00ff88;
+          color: #0a0e27;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 9px;
+          font-weight: bold;
+          animation: pulse 2s infinite;
         }
 
         .tag-icon {
@@ -309,6 +370,21 @@ const BestSetupsByTag = ({ data }) => {
           font-weight: bold;
         }
 
+        .signal-status {
+          margin-top: 10px;
+          padding: 8px;
+          background: rgba(0, 212, 255, 0.1);
+          border: 1px solid rgba(0, 212, 255, 0.3);
+          border-radius: 4px;
+        }
+
+        .signal-strength {
+          font-size: 11px;
+          color: #00d4ff;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+
         .signal-age {
           text-align: center;
           margin-top: 5px;
@@ -316,10 +392,16 @@ const BestSetupsByTag = ({ data }) => {
 
         .age-indicator {
           font-size: 10px;
-          color: #666;
+          color: #999;
           background: rgba(0, 0, 0, 0.3);
           padding: 2px 8px;
           border-radius: 10px;
+        }
+
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.7; }
+          100% { opacity: 1; }
         }
 
         /* Mobile styles */
