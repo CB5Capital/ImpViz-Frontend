@@ -16,15 +16,10 @@ function App() {
   const [regimeShift, setRegimeShift] = useState(null);
   const [regimeShiftTime, setRegimeShiftTime] = useState(null);
   const [activeSection, setActiveSection] = useState('heatmap');
-  const [expandedSections, setExpandedSections] = useState({
-    heatmap: true,
-    chart: true,
-    history: true
-  });
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
-  const { isMobile, screenSize } = useMobileDetect();
+  const { isMobile } = useMobileDetect();
 
   const getWebSocketUrl = () => {
     if (environment === 'local') {
@@ -211,12 +206,6 @@ function App() {
     return date.toLocaleTimeString();
   };
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
 
   const renderMobileSection = () => {
     switch (activeSection) {
