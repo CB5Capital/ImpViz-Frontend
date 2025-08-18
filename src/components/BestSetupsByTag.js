@@ -4,6 +4,13 @@ const BestSetupsByTag = ({ data, regimeShift, regimeShiftTime, currentRegime }) 
   // Extract signals from the data
   const signalsData = data?.data?.signals_by_market;
   
+  // Extract the overall market score to determine direction bias
+  const marketScore = data?.data?.active_signals_score_by_market;
+  const overallScore = marketScore ? Object.values(marketScore)[0] : 0; // Get first market's score
+  
+  // Determine preferred direction based on score
+  const preferredDirection = overallScore >= 0 ? 'Long' : 'Short';
+  
   if (!signalsData) {
     return (
       <div className="best-setups-section">
@@ -43,8 +50,8 @@ const BestSetupsByTag = ({ data, regimeShift, regimeShiftTime, currentRegime }) 
           }
         }
 
-        // Include ONLY ACTIVE signals
-        if (tag && signal.direction && (signal.direction === 'Long' || signal.direction === 'Short') && signal.has_active_signal === 1) {
+        // Include ONLY ACTIVE signals that match the preferred direction based on overall score
+        if (tag && signal.direction && signal.direction === preferredDirection && signal.has_active_signal === 1) {
           signalsByTagAndDirection[tag][signal.direction].push({
             ...signal,
             market: market,
@@ -155,11 +162,29 @@ const BestSetupsByTag = ({ data, regimeShift, regimeShiftTime, currentRegime }) 
         </div>
       )}
 
-      <h3>🏆 BEST ACTIVE SETUPS BY STRATEGY</h3>
+      <div className="section-header">
+        <h3>🏆 BEST ACTIVE SETUPS BY STRATEGY</h3>
+        <div className="direction-bias">
+          <span className="bias-label">Market Bias:</span>
+          <span 
+            className="bias-direction"
+            style={{ 
+              color: preferredDirection === 'Long' ? '#00ff88' : '#ff4444',
+              backgroundColor: preferredDirection === 'Long' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 68, 68, 0.1)'
+            }}
+          >
+            {preferredDirection === 'Long' ? '📈' : '📉'} {preferredDirection.toUpperCase()} 
+            ({overallScore > 0 ? '+' : ''}{overallScore.toFixed(1)})
+          </span>
+        </div>
+      </div>
       
       {bestSetupsByTagAndDirection.length === 0 ? (
         <div className="no-active-setups">
-          <p>No active setups currently</p>
+          <p>No active {preferredDirection.toLowerCase()} setups currently</p>
+          <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
+            Showing only {preferredDirection.toLowerCase()} setups due to {preferredDirection.toLowerCase()} market bias
+          </p>
         </div>
       ) : (
         <div className="best-setups-grid">
@@ -266,12 +291,38 @@ const BestSetupsByTag = ({ data, regimeShift, regimeShiftTime, currentRegime }) 
           border: 1px solid #1a1f3a;
         }
 
+        .section-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
         .best-setups-section h3 {
           font-size: 14px;
           color: #00d4ff;
           text-transform: uppercase;
-          margin-bottom: 15px;
-          text-align: center;
+          margin-bottom: 10px;
+        }
+
+        .direction-bias {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 5px;
+        }
+
+        .bias-label {
+          font-size: 11px;
+          color: #888;
+          text-transform: uppercase;
+        }
+
+        .bias-direction {
+          font-size: 12px;
+          font-weight: bold;
+          padding: 4px 12px;
+          border-radius: 15px;
+          border: 1px solid currentColor;
         }
 
         /* Regime Shift Banner */
