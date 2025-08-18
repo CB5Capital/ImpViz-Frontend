@@ -13,12 +13,12 @@ const BestSetupsByTag = ({ data }) => {
     );
   }
 
-  // Collect ALL signals (not just active) and organize by TAG
+  // Collect ALL signals (not just active) and organize by TAG and DIRECTION
   // TAG mapping from backend (super_model.py lines 1179-1185):
-  const signalsByTag = {
-    "Trend Following": [],
-    "Mean Reversion": [],
-    "Trend Reversal": []
+  const signalsByTagAndDirection = {
+    "Trend Following": { "Long": [], "Short": [] },
+    "Mean Reversion": { "Long": [], "Short": [] },
+    "Trend Reversal": { "Long": [], "Short": [] }
   };
 
   // Process all markets
@@ -44,8 +44,8 @@ const BestSetupsByTag = ({ data }) => {
         }
 
         // Include ALL signals, not just active ones
-        if (tag) {
-          signalsByTag[tag].push({
+        if (tag && signal.direction && (signal.direction === 'Long' || signal.direction === 'Short')) {
+          signalsByTagAndDirection[tag][signal.direction].push({
             ...signal,
             market: market,
             // Add a flag to indicate if signal is active
@@ -56,42 +56,48 @@ const BestSetupsByTag = ({ data }) => {
     }
   });
 
-  // Find best setup for each TAG based on overall performance metrics
-  const bestSetupsByTag = {};
+  // Find best setup for each TAG and DIRECTION combination
+  const bestSetupsByTagAndDirection = [];
   
-  Object.entries(signalsByTag).forEach(([tag, signals]) => {
-    if (signals.length > 0) {
-      // Sort by overall performance metrics, not just active signal strength
-      // Use: hit_rate * pnl_per_trade * (1 / avg_drawdown) * sample_size weight
-      const sortedSignals = signals.sort((a, b) => {
-        // Calculate composite score based on historical performance
-        const hitRateA = a.hit_rate || 0;
-        const hitRateB = b.hit_rate || 0;
+  Object.entries(signalsByTagAndDirection).forEach(([tag, directions]) => {
+    Object.entries(directions).forEach(([direction, signals]) => {
+      if (signals.length > 0) {
+        // Sort by overall performance metrics, not just active signal strength
+        // Use: hit_rate * pnl_per_trade * (1 / avg_drawdown) * sample_size weight
+        const sortedSignals = signals.sort((a, b) => {
+          // Calculate composite score based on historical performance
+          const hitRateA = a.hit_rate || 0;
+          const hitRateB = b.hit_rate || 0;
+          
+          const pnlA = a.pnl_per_trade || 0;
+          const pnlB = b.pnl_per_trade || 0;
+          
+          // Lower drawdown is better, so invert it
+          const drawdownFactorA = a.avg_drawdown ? (1 / Math.abs(a.avg_drawdown)) : 0.1;
+          const drawdownFactorB = b.avg_drawdown ? (1 / Math.abs(b.avg_drawdown)) : 0.1;
+          
+          // Sample size weight (more samples = more reliable)
+          const sampleWeightA = Math.min(1, (a.sample_size || 0) / 100);
+          const sampleWeightB = Math.min(1, (b.sample_size || 0) / 100);
+          
+          // Risk/reward ratio bonus
+          const rrA = a.risk_reward_ratio || 1;
+          const rrB = b.risk_reward_ratio || 1;
+          
+          // Composite score calculation
+          const scoreA = hitRateA * pnlA * drawdownFactorA * sampleWeightA * rrA;
+          const scoreB = hitRateB * pnlB * drawdownFactorB * sampleWeightB * rrB;
+          
+          return scoreB - scoreA;
+        });
         
-        const pnlA = a.pnl_per_trade || 0;
-        const pnlB = b.pnl_per_trade || 0;
-        
-        // Lower drawdown is better, so invert it
-        const drawdownFactorA = a.avg_drawdown ? (1 / Math.abs(a.avg_drawdown)) : 0.1;
-        const drawdownFactorB = b.avg_drawdown ? (1 / Math.abs(b.avg_drawdown)) : 0.1;
-        
-        // Sample size weight (more samples = more reliable)
-        const sampleWeightA = Math.min(1, (a.sample_size || 0) / 100);
-        const sampleWeightB = Math.min(1, (b.sample_size || 0) / 100);
-        
-        // Risk/reward ratio bonus
-        const rrA = a.risk_reward_ratio || 1;
-        const rrB = b.risk_reward_ratio || 1;
-        
-        // Composite score calculation
-        const scoreA = hitRateA * pnlA * drawdownFactorA * sampleWeightA * rrA;
-        const scoreB = hitRateB * pnlB * drawdownFactorB * sampleWeightB * rrB;
-        
-        return scoreB - scoreA;
-      });
-      
-      bestSetupsByTag[tag] = sortedSignals[0];
-    }
+        bestSetupsByTagAndDirection.push({
+          tag: tag,
+          direction: direction,
+          setup: sortedSignals[0]
+        });
+      }
+    });
   });
 
   const getDirectionColor = (direction) => {
@@ -111,17 +117,23 @@ const BestSetupsByTag = ({ data }) => {
     <div className="best-setups-section">
       <h3>🏆 BEST SETUPS BY STRATEGY (CURRENT REGIME)</h3>
       
-      {Object.keys(bestSetupsByTag).length === 0 ? (
+      {bestSetupsByTagAndDirection.length === 0 ? (
         <div className="no-active-setups">
           <p>No setups available in current regime</p>
         </div>
       ) : (
         <div className="best-setups-grid">
-          {Object.entries(bestSetupsByTag).map(([tag, setup]) => (
-            <div key={tag} className="best-setup-card">
+          {bestSetupsByTagAndDirection.map(({ tag, direction, setup }, index) => (
+            <div key={`${tag}-${direction}`} className="best-setup-card">
               <div className="setup-header">
                 <span className="tag-icon">{getTagIcon(tag)}</span>
                 <span className="tag-name">{tag}</span>
+                <span 
+                  className="direction-badge"
+                  style={{ backgroundColor: getDirectionColor(direction) }}
+                >
+                  {direction}
+                </span>
                 {setup.isActive && (
                   <span className="active-badge">ACTIVE</span>
                 )}
@@ -132,14 +144,8 @@ const BestSetupsByTag = ({ data }) => {
                   {setup.setup_name}
                 </div>
                 
-                <div className="setup-market-direction">
+                <div className="setup-market-timeframe">
                   <span className="market">{setup.market}</span>
-                  <span 
-                    className="direction"
-                    style={{ color: getDirectionColor(setup.direction) }}
-                  >
-                    {setup.direction}
-                  </span>
                   <span className="timeframe">{setup.timeframe}</span>
                 </div>
                 
@@ -232,8 +238,8 @@ const BestSetupsByTag = ({ data }) => {
         }
 
         .best-setups-grid {
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 15px;
         }
 
@@ -259,6 +265,15 @@ const BestSetupsByTag = ({ data }) => {
           padding-bottom: 8px;
           border-bottom: 1px solid #2a2f4a;
           position: relative;
+        }
+
+        .direction-badge {
+          padding: 3px 8px;
+          border-radius: 12px;
+          font-size: 10px;
+          font-weight: bold;
+          color: #0a0e27;
+          text-transform: uppercase;
         }
 
         .active-badge {
@@ -406,6 +421,11 @@ const BestSetupsByTag = ({ data }) => {
           font-size: 13px;
         }
 
+        .mobile .best-setups-grid {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+
         .mobile .best-setup-card {
           padding: 12px;
         }
@@ -417,6 +437,12 @@ const BestSetupsByTag = ({ data }) => {
         .mobile .metric-item {
           flex: 1;
           min-width: 30%;
+        }
+
+        /* Mobile direction badge */
+        .mobile .direction-badge {
+          font-size: 9px;
+          padding: 2px 6px;
         }
       `}</style>
     </div>
