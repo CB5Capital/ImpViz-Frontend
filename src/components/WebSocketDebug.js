@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 
 const WebSocketDebug = () => {
   const [logs, setLogs] = useState([]);
-  const [url, setUrl] = useState(window.location.protocol === 'https:' ? 'wss://websocket.impviz.com:8765' : 'ws://websocket.impviz.com:8765');
+  const [url, setUrl] = useState(window.location.protocol === 'https:' ? 'wss://websocket.impviz.com' : 'ws://websocket.impviz.com');
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef(null);
 

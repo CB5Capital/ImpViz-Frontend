@@ -30,10 +30,10 @@ function App() {
     if (window.location.protocol === 'https:') {
       // If HTTPS, we need WSS, but fallback to different approach if server doesn't support it
       console.warn('⚠️ HTTPS detected - WebSocket server needs SSL support');
-      return 'wss://websocket.impviz.com:8765'; // SSL-enabled WebSocket
+      return 'wss://websocket.impviz.com'; // SSL-enabled WebSocket
     }
     
-    return 'ws://websocket.impviz.com:8765';
+    return 'ws://websocket.impviz.com';
   };
 
   const websocketUrl = getWebSocketUrl();

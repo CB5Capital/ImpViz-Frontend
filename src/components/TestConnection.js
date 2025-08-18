@@ -66,7 +66,7 @@ const TestConnection = () => {
           Test Local
         </button>
         <button 
-          onClick={() => testConnection(window.location.protocol === 'https:' ? 'wss://websocket.impviz.com:8765' : 'ws://websocket.impviz.com:8765')}
+          onClick={() => testConnection(window.location.protocol === 'https:' ? 'wss://websocket.impviz.com' : 'ws://websocket.impviz.com')}
           style={{
             padding: '5px 10px',
             background: '#00ff88',
