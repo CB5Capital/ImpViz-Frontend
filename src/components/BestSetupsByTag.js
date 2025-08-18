@@ -13,16 +13,8 @@ const BestSetupsByTag = ({ data }) => {
     );
   }
 
-  // TAG mapping from the backend - matching super_model.py lines 1179-1185
-  const tagMapping = {
-    "MACD Convergence": "Trend Following",
-    "SMA 5/20 Convergence": "Trend Following",  // This is Trend Following, not Trend Reversal
-    "Williams %R 1/99 -> 20/80": "Mean Reversion",
-    "Williams %R 10/90 -> 50/50": "Mean Reversion",
-    "SMA 5/20 + Williams %R Counter Trend": "Trend Reversal"
-  };
-
   // Collect ALL signals (not just active) and organize by TAG
+  // TAG mapping from backend (super_model.py lines 1179-1185):
   const signalsByTag = {
     "Trend Following": [],
     "Mean Reversion": [],
