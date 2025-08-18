@@ -4,6 +4,7 @@ import StrategyHeatmap from './components/StrategyHeatmap';
 import ScoreChart from './components/ScoreChart';
 import ScoreHistoryTable from './components/ScoreHistoryTable';
 import RegimeShiftAlert from './components/RegimeShiftAlert';
+import useMobileDetect from './hooks/useMobileDetect';
 
 function App() {
   const [environment, setEnvironment] = useState('prod');
@@ -14,9 +15,16 @@ function App() {
   const [currentRegime, setCurrentRegime] = useState(null);
   const [regimeShift, setRegimeShift] = useState(null);
   const [regimeShiftTime, setRegimeShiftTime] = useState(null);
+  const [activeSection, setActiveSection] = useState('heatmap');
+  const [expandedSections, setExpandedSections] = useState({
+    heatmap: true,
+    chart: true,
+    history: true
+  });
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
+  const { isMobile, screenSize } = useMobileDetect();
 
   const getWebSocketUrl = () => {
     if (environment === 'local') {
@@ -203,8 +211,38 @@ function App() {
     return date.toLocaleTimeString();
   };
 
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const renderMobileSection = () => {
+    switch (activeSection) {
+      case 'heatmap':
+        return <StrategyHeatmap data={marketData} />;
+      case 'chart':
+        return (
+          <ScoreChart 
+            scoreHistory={scoreHistory} 
+            onClearHistory={() => setScoreHistory([])}
+          />
+        );
+      case 'history':
+        return (
+          <ScoreHistoryTable 
+            scoreHistory={scoreHistory}
+            regimeData={marketData.data?.regime_by_market}
+          />
+        );
+      default:
+        return <StrategyHeatmap data={marketData} />;
+    }
+  };
+
   return (
-    <div className="app">
+    <div className={`app ${isMobile ? 'mobile' : ''}`}>
       {/* Regime Shift Alert */}
       <RegimeShiftAlert 
         regimeShift={regimeShift} 
@@ -242,20 +280,50 @@ function App() {
         </div>
       </header>
 
-      {/* Strategy Metrics Heatmap */}
-      <StrategyHeatmap data={marketData} />
+      {isMobile ? (
+        <>
+          <div className="mobile-content">
+            {renderMobileSection()}
+          </div>
+          <div className="mobile-nav">
+            <button 
+              className={`nav-button ${activeSection === 'heatmap' ? 'active' : ''}`}
+              onClick={() => setActiveSection('heatmap')}
+            >
+              Heatmap
+            </button>
+            <button 
+              className={`nav-button ${activeSection === 'chart' ? 'active' : ''}`}
+              onClick={() => setActiveSection('chart')}
+            >
+              Chart
+            </button>
+            <button 
+              className={`nav-button ${activeSection === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveSection('history')}
+            >
+              History
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Strategy Metrics Heatmap */}
+          <StrategyHeatmap data={marketData} />
 
-      {/* Score Trend Chart */}
-      <ScoreChart 
-        scoreHistory={scoreHistory} 
-        onClearHistory={() => setScoreHistory([])}
-      />
+          {/* Score Trend Chart */}
+          <ScoreChart 
+            scoreHistory={scoreHistory} 
+            onClearHistory={() => setScoreHistory([])}
+          />
 
-      {/* Score & Regime History Table */}
-      <ScoreHistoryTable 
-        scoreHistory={scoreHistory}
-        regimeData={marketData.data?.regime_by_market}
-      />
+          {/* Score & Regime History Table */}
+          <ScoreHistoryTable 
+            scoreHistory={scoreHistory}
+            regimeData={marketData.data?.regime_by_market}
+          />
+        </>
+      )}
     </div>
   );
 }
