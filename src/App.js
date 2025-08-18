@@ -4,6 +4,7 @@ import StrategyHeatmap from './components/StrategyHeatmap';
 import ScoreChart from './components/ScoreChart';
 import ScoreHistoryTable from './components/ScoreHistoryTable';
 import RegimeShiftAlert from './components/RegimeShiftAlert';
+import BestSetupsByTag from './components/BestSetupsByTag';
 import MobileApp from './components/MobileApp';
 import useMobileDetect from './hooks/useMobileDetect';
 
@@ -17,6 +18,7 @@ function App() {
   const [regimeShift, setRegimeShift] = useState(null);
   const [regimeShiftTime, setRegimeShiftTime] = useState(null);
   const [activeSection, setActiveSection] = useState('heatmap');
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
@@ -249,7 +251,7 @@ function App() {
 
   // Desktop version
   return (
-    <div className="app">
+    <div className={`app ${isFullScreen ? 'fullscreen' : ''}`}>
       {/* Regime Shift Alert */}
       <RegimeShiftAlert 
         regimeShift={regimeShift} 
@@ -279,6 +281,13 @@ function App() {
             </span>
           </div>
           <button 
+            className="view-toggle"
+            onClick={() => setIsFullScreen(!isFullScreen)}
+            title={isFullScreen ? 'Switch to Trading Bar' : 'Switch to Full Screen'}
+          >
+            {isFullScreen ? '⬅️' : '⬇️'}
+          </button>
+          <button 
             className="env-toggle"
             onClick={() => setEnvironment(env => env === 'prod' ? 'local' : 'prod')}
           >
@@ -287,20 +296,25 @@ function App() {
         </div>
       </header>
 
-      {/* Strategy Metrics Heatmap */}
-      <StrategyHeatmap data={marketData} />
+      <div className={`app-content ${isFullScreen ? 'fullscreen-grid' : ''}`}>
+        {/* Best Setups by TAG - Always show this first */}
+        <BestSetupsByTag data={marketData} />
 
-      {/* Score Trend Chart */}
-      <ScoreChart 
-        scoreHistory={scoreHistory} 
-        onClearHistory={() => setScoreHistory([])}
-      />
+        {/* Strategy Metrics Heatmap */}
+        <StrategyHeatmap data={marketData} />
 
-      {/* Score & Regime History Table */}
-      <ScoreHistoryTable 
-        scoreHistory={scoreHistory}
-        regimeData={marketData.data?.regime_by_market}
-      />
+        {/* Score Trend Chart */}
+        <ScoreChart 
+          scoreHistory={scoreHistory} 
+          onClearHistory={() => setScoreHistory([])}
+        />
+
+        {/* Score & Regime History Table */}
+        <ScoreHistoryTable 
+          scoreHistory={scoreHistory}
+          regimeData={marketData.data?.regime_by_market}
+        />
+      </div>
     </div>
   );
 }

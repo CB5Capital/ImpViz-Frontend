@@ -1,4 +1,5 @@
 import React from 'react';
+import BestSetupsByTag from './BestSetupsByTag';
 
 const MobileApp = ({ 
   connectionStatus, 
@@ -140,6 +141,9 @@ const MobileApp = ({
           </div>
         ) : (
           <div>
+            {/* Always show best setups at the top */}
+            <BestSetupsByTag data={marketData} />
+            {/* Then show the selected section */}
             {renderMobileSection()}
           </div>
         )}

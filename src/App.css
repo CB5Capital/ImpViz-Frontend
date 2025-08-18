@@ -30,6 +30,46 @@ body {
   background: linear-gradient(135deg, #0a0e27 0%, #0f1433 100%);
   padding: 20px;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+/* Full screen mode */
+.app.fullscreen {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-shadow: none;
+}
+
+/* App content container */
+.app-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full screen grid layout */
+.app-content.fullscreen-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.fullscreen-grid > * {
+  width: 100%;
+}
+
+/* Make best setups span full width in fullscreen */
+.fullscreen-grid .best-setups-section {
+  grid-column: 1 / -1;
+}
+
+/* Adjust sections in fullscreen mode */
+.fullscreen .heatmap-section,
+.fullscreen .score-chart-section,
+.fullscreen .score-history-section {
+  height: auto;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 /* Mobile override - IMPORTANT: Must completely override desktop positioning */
@@ -137,7 +177,8 @@ body {
   font-size: 11px;
 }
 
-.env-toggle {
+.env-toggle,
+.view-toggle {
   background: #1a1f3a;
   color: #00d4ff;
   border: 1px solid #00d4ff;
@@ -148,11 +189,18 @@ body {
   cursor: pointer;
   text-transform: uppercase;
   transition: all 0.3s ease;
+  margin-left: 5px;
 }
 
-.env-toggle:hover {
+.env-toggle:hover,
+.view-toggle:hover {
   background: #00d4ff;
   color: #0a0e27;
+}
+
+.view-toggle {
+  font-size: 14px;
+  padding: 2px 6px;
 }
 
 /* Strategy Heatmap */
